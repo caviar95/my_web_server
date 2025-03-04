@@ -4,15 +4,16 @@ project(web_server)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# add_subdirectory(src)
+add_subdirectory(src)
 
 add_executable(web_server
-    # ${MY_SRC_FILES}
+    ${MY_SRC_FILES}
 
-    src/main.cpp
-    src/request_handler.cpp
-    src/server.cpp
-    src/thread_pool.cpp
+    # src/main.cpp
+    # src/request_handler.cpp
+    # src/server.cpp
+    # src/thread_pool.cpp
+    # src/epoller.cpp
 )
 
 target_include_directories(web_server PUBLIC ${CMAKE_SOURCE_DIR}/include)
