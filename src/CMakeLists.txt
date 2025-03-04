@@ -4,6 +4,7 @@ file(GLOB MY_SRC_FILES
     server.cpp
     thread_pool.cpp
     epoller.cpp
+    timer.cpp
 )
 
 set(MY_SRC_FILES ${MY_SRC_FILES} PARENT_SCOPE)

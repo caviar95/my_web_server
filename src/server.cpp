@@ -39,6 +39,9 @@ void Server::start() {
     is_running = true;
     std::cout << "Server started on port " << port << "...\n";
     run();
+
+    timeout_timer_.start(5);
+    epoller_.add_fd(timeout_timer_.get_fd(), EPOLLIN);
 }
 
 void Server::stop() {
@@ -83,7 +86,15 @@ void Server::handle_events(int num_events) {
         int fd = epoller_.get_event(i)->data.fd;
         if (fd == server_fd) {
             accept_connection(); // 处理新连接
+        } else if (fd == timeout_timer_.get_fd()) {
+            handle_timeout();
         } else {
+            // 更新客户端活动时间
+            {
+                std::lock_guard<std::mutex> lock(conn_mutex_);
+                conn_last_active_[fd] = time(nullptr);
+            }
+
             // 处理客户端数据
             thread_pool.enqueue([this, fd]() {
                 handle_client(fd);
@@ -146,5 +157,30 @@ void Server::handle_client(int fd) {
         std::string request(buffer, bytes_read);
         std::string response = RequestHandler::handle_request(request, html_dir);
         send(fd, response.c_str(), response.size(), 0);
+    }
+
+    // 客户端关闭连接时清理数据
+    if (bytes_read == 0) {
+        std::lock_guard<std::mutex> lock(conn_mutex_);
+        conn_last_active_.erase(fd);
+    }
+}
+
+void Server::handle_timeout() {
+    uint64_t exp;
+    read(timeout_timer_.get_fd(), &exp, sizeof(exp));
+
+    std::lock_guard<std::mutex> lock(conn_mutex_);
+    time_t now = time(nullptr);
+    auto it = conn_last_active_.begin();
+    while (it != conn_last_active_.end()) {
+        if (now - it->second > 60) { // 超过时间 60秒
+            std::cout << "Timeout: closing connection: " << it->first << std::endl;
+            close(it->first);
+            epoller_.del_fd(it->first);
+            it = conn_last_active_.erase(it);
+        } else {
+            ++it;
+        }
     }
 }
